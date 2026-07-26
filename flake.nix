@@ -15,6 +15,9 @@
         lightpanda = final.callPackage ./lightpanda.nix { };
       };
 
+      # Home Manager module providing `services.lightpanda.enable = true;`.
+      homeModules.default = import ./hm-module.nix { inherit self; };
+
       # Or reference the package directly: inputs.lightpanda.packages.<system>.default
       packages = forAll (
         system:
