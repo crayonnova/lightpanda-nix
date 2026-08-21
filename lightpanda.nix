@@ -10,11 +10,11 @@ stdenv.mkDerivation (finalAttrs: {
   # `nightly` is a moving tag: bump `version` (date) and `src.hash` together
   # when you want a newer build. To refresh the hash, set it to
   # lib.fakeHash, rebuild, and copy the "got:" value Nix prints.
-  version = "nightly-2026-07-26";
+  version = "nightly-2026-08-16";
 
   src = fetchurl {
-    url = "https://github.com/lightpanda-io/browser/releases/download/nightly/lightpanda-x86_64-linux";
-    hash = "sha256-uaew+sXDkkxuaHgfzEGA5bXJHmEdw7WCr3qThdhaMqE=";
+    url = "https://github.com/lightpanda-io/browser/releases/download/0.3.7/lightpanda-x86_64-linux";
+    hash = "sha256-vyhXo4bn9Fd1/GfFxseUUiTpAOuMloXokpuJ+gvUnyk=";
   };
 
   # src is a bare ELF binary, not an archive.
