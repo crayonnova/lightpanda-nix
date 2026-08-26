@@ -56,17 +56,18 @@ jobs:
           }
 
       - name: Open a pull request
-        # NOTE: with the default GITHUB_TOKEN, PRs opened here do NOT trigger
-        # ci.yml — GitHub suppresses workflow runs on token-authored events to
-        # prevent recursion. That means the darwin job will not run on this PR
-        # unless you swap in a PAT or fine-grained token stored as a secret:
-        #
-        #   token: ${{ secrets.UPDATE_PAT }}
-        #
-        # Without it, push the branch manually or re-run ci.yml via
-        # workflow_dispatch before merging. Do not merge a darwin-untested bump.
         uses: peter-evans/create-pull-request@v7
         with:
+          # A PAT rather than the default GITHUB_TOKEN, specifically so ci.yml
+          # runs on the resulting PR: GitHub suppresses workflow runs on events
+          # authored by GITHUB_TOKEN to prevent recursion, which would leave
+          # every bump PR with zero checks — including the darwin job that is
+          # the only real test of the Mach-O path.
+          #
+          # Fine-grained, scoped to this repo, contents:write + pull-requests:write.
+          # When it expires this step starts failing, and since the trigger is a
+          # weekly cron that failure is easy to miss for a long time.
+          token: ${{ secrets.UPDATE_PAT }}
           branch: update/lightpanda-bin
           delete-branch: true
           title: "lightpanda-bin: bump to latest upstream release"
@@ -75,6 +76,5 @@ jobs:
             Automated bump produced by `./update.sh`.
 
             `x86_64-linux` was built and smoke-tested on the runner. Confirm the
-            `aarch64-darwin` job is green before merging — if this PR shows no
-            checks, they were suppressed because the PR was opened with
-            `GITHUB_TOKEN` (see the comment in `.github/workflows/update.yml`).
+            `aarch64-darwin` job is green before merging — it is the only check
+            that exercises the Mach-O path on real hardware.
