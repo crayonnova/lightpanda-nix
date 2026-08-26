@@ -1,0 +1,77 @@
+name: update
+
+# Weekly bump to the newest upstream semver release, opened as a PR rather than
+# pushed to main. Upstream ships roughly two releases a month, so a human gate
+# costs little and keeps the "never merge an unbuilt hash" rule intact.
+
+on:
+  schedule:
+    # Mondays 07:23 UTC, after ci.yml's drift check has had time to run.
+    - cron: "23 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Run the updater
+        # No-ops and exits 0 when already at the newest release, in which case
+        # create-pull-request below finds no diff and does nothing.
+        env:
+          # Raises the api.github.com rate limit above the 60/hour that shared
+          # runner IPs have to fight over. Read-only use.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./update.sh
+
+      - name: Smoke-test the bumped package
+        # Only x86_64-linux is buildable on this runner. The darwin half is
+        # covered by ci.yml once the PR opens — see the caveat below about
+        # needing a PAT for that to actually trigger.
+        run: |
+          if git diff --quiet; then
+            echo "no change; skipping build"
+            exit 0
+          fi
+          nix build .#default -L
+          expected="$(sed -n 's/^  version = "\(.*\)";$/\1/p' lightpanda.nix)"
+          actual="$(./result/bin/lightpanda version | head -n1 | tr -d '\r')"
+          [ "$actual" = "$expected" ] || {
+            echo "::error::version mismatch after bump: binary reports '$actual', file pins '$expected'"
+            exit 1
+          }
+
+      - name: Open a pull request
+        # NOTE: with the default GITHUB_TOKEN, PRs opened here do NOT trigger
+        # ci.yml — GitHub suppresses workflow runs on token-authored events to
+        # prevent recursion. That means the darwin job will not run on this PR
+        # unless you swap in a PAT or fine-grained token stored as a secret:
+        #
+        #   token: ${{ secrets.UPDATE_PAT }}
+        #
+        # Without it, push the branch manually or re-run ci.yml via
+        # workflow_dispatch before merging. Do not merge a darwin-untested bump.
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: update/lightpanda-bin
+          delete-branch: true
+          title: "lightpanda-bin: bump to latest upstream release"
+          commit-message: "lightpanda-bin: bump to latest upstream release"
+          body: |
+            Automated bump produced by `./update.sh`.
+
+            `x86_64-linux` was built and smoke-tested on the runner. Confirm the
+            `aarch64-darwin` job is green before merging — if this PR shows no
+            checks, they were suppressed because the PR was opened with
+            `GITHUB_TOKEN` (see the comment in `.github/workflows/update.yml`).

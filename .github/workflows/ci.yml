@@ -1,0 +1,116 @@
+name: ci
+
+# Three things can break this repo, and each job covers exactly one:
+#
+#   linux   — the autoPatchelfHook path still produces a runnable ELF
+#   darwin  — the Mach-O path still produces a runnable, still-signed binary
+#   hashes  — upstream has not replaced a published asset under a pinned tag
+#
+# The `schedule` trigger matters as much as `push`: hash drift is caused by
+# upstream, not by a commit here, so it will not surface from push events alone.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Mondays 06:17 UTC. Off the hour, since the top of the hour is when
+    # GitHub's scheduler is most congested and jobs get delayed or dropped.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: build (x86_64-linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Flake check
+        run: nix flake check --all-systems
+
+      - name: Build
+        run: nix build .#default -L
+
+      - name: Binary runs and reports the pinned version
+        run: |
+          expected="$(sed -n 's/^  version = "\(.*\)";$/\1/p' lightpanda.nix)"
+          actual="$(./result/bin/lightpanda version | head -n1 | tr -d '\r')"
+          echo "expected=$expected actual=$actual"
+          [ "$actual" = "$expected" ] || {
+            echo "::error::version mismatch: built binary reports '$actual', lightpanda.nix pins '$expected'"
+            exit 1
+          }
+
+      - name: No unpatched interpreter or missing libraries
+        run: |
+          # autoPatchelfHook already fails the build on unresolved deps, so this
+          # is a belt-and-braces check that the interpreter left /lib64.
+          # patchelf is not preinstalled on GitHub's runners; pull it from nix.
+          interp="$(nix run nixpkgs#patchelf -- --print-interpreter ./result/bin/lightpanda)"
+          echo "interpreter: $interp"
+          case "$interp" in
+            /nix/store/*) ;;
+            *) echo "::error::interpreter not repointed into the store: $interp"; exit 1 ;;
+          esac
+
+  darwin:
+    name: build (aarch64-darwin)
+    # macos-14 and later are Apple Silicon, so this is a genuine aarch64-darwin
+    # build on real hardware — the one thing that cannot be checked from Linux.
+    # Free for public repos; on a private repo macOS minutes bill at 10x.
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Build
+        run: nix build .#default -L
+
+      - name: Binary runs and reports the pinned version
+        # This step IS the code-signature test. If fixupPhase had stripped or
+        # otherwise rewritten the Mach-O, its ad-hoc signature would no longer
+        # validate and the arm64 kernel would SIGKILL the process on exec —
+        # so a successful `version` here proves the bytes came through intact.
+        run: |
+          expected="$(sed -n 's/^  version = "\(.*\)";$/\1/p' lightpanda.nix)"
+          actual="$(./result/bin/lightpanda version | head -n1 | tr -d '\r')"
+          echo "expected=$expected actual=$actual"
+          [ "$actual" = "$expected" ] || {
+            echo "::error::version mismatch: built binary reports '$actual', lightpanda.nix pins '$expected'"
+            exit 1
+          }
+
+      - name: Signature and linkage (informational)
+        # Not gating: `codesign -v` has opinions about non-bundle executables
+        # that are not worth failing a build over. Execution above is the real
+        # test; this output is here to make diagnosis quick when it fails.
+        continue-on-error: true
+        run: |
+          codesign -dv --verbose=4 ./result/bin/lightpanda 2>&1 || true
+          otool -L ./result/bin/lightpanda
+
+  hashes:
+    name: upstream hash drift
+    # Platform-independent: fetching a fixed-output source does not require the
+    # target system, so this one Linux job covers all four platforms in
+    # passthru.sources — including x86_64-darwin, which the flake cannot even
+    # evaluate on current nixpkgs and therefore has no build job above.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Verify every recorded hash still matches upstream
+        run: ./update.sh --check

@@ -60,6 +60,7 @@ nix run github:crayonnova/lightpanda-nix -- version
 
 ```bash
 ./update.sh          # resolves the latest release, refetches every platform hash
+./update.sh --check  # verifies the hashes already pinned; writes nothing
 nix build .#lightpanda-bin && ./result/bin/lightpanda version
 ```
 
@@ -67,13 +68,34 @@ Do not hand-edit hashes. `update.sh` derives its platform list from
 `passthru.sources` and translates Nix's `-darwin` to upstream's `-macos` asset
 naming, so adding a platform is a one-place edit.
 
-## Upstreaming to nixpkgs
+`--check` exists because a fixed-output derivation assumes a URL's bytes never
+change. If upstream ever replaces a published asset in place, every recorded
+hash for that tag silently becomes a lie and users hit `hash mismatch in
+fixed-output derivation` on their next build. `--check` re-fetches each pinned
+source, exits non-zero on any mismatch, and never rewrites the file — so it
+reports the problem instead of papering over it. It makes no GitHub API call,
+and it covers `x86_64-darwin` too, which no build job can reach.
 
-`lightpanda.nix` is written in nixpkgs style (`stdenvNoCC`, `passthru.sources`
-keyed by system, `sourceProvenance`, `updateScript`) so it can move to
-`pkgs/by-name/li/lightpanda-bin/package.nix` largely unchanged. Before
-submitting: add your handle to `meta.maintainers`, and swap `update.sh` for
-`update-source-version` calls (see the comment at the top of `update.sh`).
+## CI
 
-The Home Manager module cannot go to nixpkgs — modules live in the
-`home-manager` repo and need a separate PR.
+`.github/workflows/ci.yml` runs on push, PR, and a weekly schedule. One job per
+failure mode:
+
+| Job      | Runner          | Checks                                              |
+| -------- | --------------- | --------------------------------------------------- |
+| `linux`  | `ubuntu-latest` | `nix flake check --all-systems`, build, ELF interpreter repointed into the store |
+| `darwin` | `macos-14`      | build and **execute** on real Apple Silicon          |
+| `hashes` | `ubuntu-latest` | `./update.sh --check`                                |
+
+The schedule trigger is not redundant: asset drift originates upstream, so it
+would never surface from push events alone.
+
+The `darwin` job's `lightpanda version` step is the code-signature test. A
+stripped or otherwise rewritten Mach-O fails signature validation and is killed
+on exec, so a successful run proves the bytes were installed untouched.
+
+`.github/workflows/update.yml` runs `update.sh` weekly and opens a PR. Note that
+PRs authored by the default `GITHUB_TOKEN` do **not** trigger `ci.yml` — GitHub
+suppresses that to prevent recursion — so those PRs show no checks unless you
+supply a PAT as `secrets.UPDATE_PAT`. Do not merge a bump that darwin has not
+built.
