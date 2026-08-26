@@ -46,7 +46,12 @@ platforms="$(sed -n 's/^      "\([^"]*\)" = fetchurl {$/\1/p' "$file")"
 [[ -n "$platforms" ]] || { echo "update.sh: no platforms found in passthru.sources" >&2; exit 1; }
 
 for platform in $platforms; do
-  url="https://github.com/$repo/releases/download/$latest/lightpanda-$platform"
+  # Nix system strings say `-darwin`; upstream names its assets `-macos`. The
+  # arch half matches on both sides, so only the OS half needs translating.
+  asset="${platform%-darwin}"
+  [[ "$asset" == "$platform" ]] || asset="$asset-macos"
+
+  url="https://github.com/$repo/releases/download/$latest/lightpanda-$asset"
 
   # The hash belonging to this platform: first sha256- literal after its key.
   old="$(awk -v key="\"$platform\" = fetchurl" '
@@ -56,7 +61,7 @@ for platform in $platforms; do
   [[ -n "$old" ]] || { echo "update.sh: no hash found for $platform" >&2; exit 1; }
 
   echo "  $platform: fetching $url"
-  new="$(nix store prefetch-file --json --name "lightpanda-$platform" "$url" | jq -r .hash)"
+  new="$(nix store prefetch-file --json --name "lightpanda-$asset" "$url" | jq -r .hash)"
   [[ -n "$new" && "$new" != "null" ]] || { echo "update.sh: prefetch failed for $platform" >&2; exit 1; }
 
   # Base64 never contains '|', so it is safe as the sed delimiter. Each hash is

@@ -6,9 +6,15 @@
   outputs =
     { self, nixpkgs }:
     let
+      # Subset of passthru.sources in lightpanda.nix that this flake's pinned
+      # nixpkgs can evaluate. x86_64-darwin is deliberately absent: nixpkgs
+      # 26.11 dropped it, so `legacyPackages.x86_64-darwin` throws and would
+      # take every other output down with it. The source stays in
+      # passthru.sources for overlay consumers on an older nixpkgs.
       systems = [
         "x86_64-linux"
         "aarch64-linux"
+        "aarch64-darwin"
       ];
       forAll = nixpkgs.lib.genAttrs systems;
     in
