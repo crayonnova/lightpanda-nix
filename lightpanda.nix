@@ -14,7 +14,7 @@
 
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "lightpanda-bin";
-  version = "0.3.6";
+  version = "0.3.7";
 
   src =
     finalAttrs.passthru.sources.${stdenvNoCC.hostPlatform.system}
@@ -59,19 +59,19 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     sources = {
       "x86_64-linux" = fetchurl {
         url = "https://github.com/lightpanda-io/browser/releases/download/${finalAttrs.version}/lightpanda-x86_64-linux";
-        hash = "sha256-5DjArUTg9pFsFM8TvrADUSxgQ42P0gBzjS5ZbnP2UtY=";
+        hash = "sha256-iVM5sCIFFxoYHd50OuAGi7RWSIQHb+rISCusqcISqlo=";
       };
       "aarch64-linux" = fetchurl {
         url = "https://github.com/lightpanda-io/browser/releases/download/${finalAttrs.version}/lightpanda-aarch64-linux";
-        hash = "sha256-KcBZzQdVoZU1DMedvPfulYD9V17D6qMdt1XbraQX5hY=";
+        hash = "sha256-TA7LKLT8+21bzoLshuFfxs3onOoWjPOEBJTw7iZ1WFI=";
       };
       "x86_64-darwin" = fetchurl {
         url = "https://github.com/lightpanda-io/browser/releases/download/${finalAttrs.version}/lightpanda-x86_64-macos";
-        hash = "sha256-RosxJhCOBSp1qiFLMVTUHJkHDb2njGuesvAnoCvrQlg=";
+        hash = "sha256-XhGLbpHCzMsc5/DTT8OdqyYrlH5N6impCxp1uTmdeGI=";
       };
       "aarch64-darwin" = fetchurl {
         url = "https://github.com/lightpanda-io/browser/releases/download/${finalAttrs.version}/lightpanda-aarch64-macos";
-        hash = "sha256-M1aJNNN02vkBK5vghH/YKpndnxyy8vk7t4PMeKlsmaw=";
+        hash = "sha256-rplULYGvIwhyluwDersNV6VwAlAvX/TBsLBd+khLebg=";
       };
     };
 
