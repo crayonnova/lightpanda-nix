@@ -1,5 +1,5 @@
 {
-  description = "Lightpanda headless browser (prebuilt nightly), packaged for Nix";
+  description = "Lightpanda headless browser (prebuilt release binaries), packaged for Nix";
 
   inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
@@ -30,6 +30,11 @@
 
       # Home Manager module providing `services.lightpanda.enable = true;`.
       homeModules.default = import ./hm-module.nix { inherit self; };
+
+      # `nix fmt`. nixfmt implements RFC 166, the style nixpkgs standardised on,
+      # so formatting here matches what a nixpkgs PR is checked against.
+      # (`nixfmt-rfc-style` is now a deprecated alias for this same package.)
+      formatter = forAll (system: nixpkgs.legacyPackages.${system}.nixfmt);
 
       # Or reference the package directly: inputs.lightpanda.packages.<system>.default
       packages = forAll (

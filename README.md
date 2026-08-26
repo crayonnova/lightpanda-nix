@@ -1,5 +1,9 @@
 # lightpanda-nix
 
+[![ci](https://github.com/crayonnova/lightpanda-nix/actions/workflows/ci.yml/badge.svg)](https://github.com/crayonnova/lightpanda-nix/actions/workflows/ci.yml)
+[![update](https://github.com/crayonnova/lightpanda-nix/actions/workflows/update.yml/badge.svg)](https://github.com/crayonnova/lightpanda-nix/actions/workflows/update.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Nix flake packaging the [Lightpanda](https://github.com/lightpanda-io/browser)
 headless browser from upstream's prebuilt release binaries.
 
@@ -94,8 +98,22 @@ The `darwin` job's `lightpanda version` step is the code-signature test. A
 stripped or otherwise rewritten Mach-O fails signature validation and is killed
 on exec, so a successful run proves the bytes were installed untouched.
 
-`.github/workflows/update.yml` runs `update.sh` weekly and opens a PR. Note that
-PRs authored by the default `GITHUB_TOKEN` do **not** trigger `ci.yml` — GitHub
-suppresses that to prevent recursion — so those PRs show no checks unless you
-supply a PAT as `secrets.UPDATE_PAT`. Do not merge a bump that darwin has not
-built.
+`.github/workflows/update.yml` runs `update.sh` weekly and opens a PR, which
+`ci.yml` then checks like any other. It authenticates with `secrets.UPDATE_PAT`
+— a fine-grained token scoped to this repo with `contents: write` and
+`pull-requests: write` — rather than the default `GITHUB_TOKEN`, because GitHub
+suppresses workflow runs on `GITHUB_TOKEN`-authored events to prevent recursion,
+which would leave every bump PR with no checks at all.
+
+If that token expires, the PR step starts failing on a weekly cron, which is
+easy to miss. Do not merge a bump that the `darwin` job has not built.
+
+## License
+
+The packaging in this repository — `flake.nix`, `lightpanda.nix`,
+`hm-module.nix`, `update.sh` — is MIT licensed, matching nixpkgs so the
+expression can be upstreamed without a relicensing question. See [LICENSE](LICENSE).
+
+Lightpanda itself is **AGPL-3.0-only** and is not covered by that. This repo
+ships no Lightpanda source; it fetches upstream's prebuilt binaries at build
+time, and `meta.license` in `lightpanda.nix` declares their terms.

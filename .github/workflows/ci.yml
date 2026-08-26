@@ -35,6 +35,13 @@ jobs:
 
       - uses: DeterminateSystems/nix-installer-action@main
 
+      - name: Formatting and editorconfig
+        # nixpkgs checks both on every PR; an unenforced .editorconfig is just
+        # decoration. `nix fmt` here is the flake's own formatter output.
+        run: |
+          nix fmt -- --check flake.nix lightpanda.nix hm-module.nix
+          nix run nixpkgs#editorconfig-checker -- -exclude '^\.git/|^result'
+
       - name: Flake check
         run: nix flake check --all-systems
 

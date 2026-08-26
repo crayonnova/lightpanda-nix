@@ -10,15 +10,14 @@
 
 let
   cfg = config.services.lightpanda;
-  args =
-    [
-      "serve"
-      "--host"
-      cfg.host
-      "--port"
-      (toString cfg.port)
-    ]
-    ++ cfg.extraArgs;
+  args = [
+    "serve"
+    "--host"
+    cfg.host
+    "--port"
+    (toString cfg.port)
+  ]
+  ++ cfg.extraArgs;
 in
 {
   options.services.lightpanda = {
