@@ -6,13 +6,20 @@
   outputs =
     { self, nixpkgs }:
     let
-      systems = [ "x86_64-linux" ];
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
       forAll = nixpkgs.lib.genAttrs systems;
     in
     {
-      # Consumers can add this overlay to get `pkgs.lightpanda` everywhere.
+      # Consumers can add this overlay to get `pkgs.lightpanda-bin` everywhere.
       overlays.default = final: prev: {
-        lightpanda = final.callPackage ./lightpanda.nix { };
+        # `-bin` matches the nixpkgs convention for prebuilt redistributions,
+        # leaving the plain name free for a future source build. The alias
+        # keeps `pkgs.lightpanda` working.
+        lightpanda-bin = final.callPackage ./lightpanda.nix { };
+        lightpanda = final.lightpanda-bin;
       };
 
       # Home Manager module providing `services.lightpanda.enable = true;`.
@@ -25,8 +32,9 @@
           pkgs = nixpkgs.legacyPackages.${system};
         in
         {
-          lightpanda = pkgs.callPackage ./lightpanda.nix { };
-          default = self.packages.${system}.lightpanda;
+          lightpanda-bin = pkgs.callPackage ./lightpanda.nix { };
+          lightpanda = self.packages.${system}.lightpanda-bin;
+          default = self.packages.${system}.lightpanda-bin;
         }
       );
     };
