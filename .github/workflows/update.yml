@@ -47,6 +47,9 @@ jobs:
           nix build .#default -L
           expected="$(sed -n 's/^  version = "\(.*\)";$/\1/p' lightpanda.nix)"
           actual="$(./result/bin/lightpanda version | head -n1 | tr -d '\r')"
+          # Echo on success too, matching ci.yml: a silent pass leaves no record
+          # of what was actually compared when you audit the run months later.
+          echo "expected=$expected actual=$actual"
           [ "$actual" = "$expected" ] || {
             echo "::error::version mismatch after bump: binary reports '$actual', file pins '$expected'"
             exit 1
